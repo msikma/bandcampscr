@@ -4,6 +4,8 @@
  */
 
 import cheerio from 'cheerio'
+import { get, noop } from 'lodash'
+import vm from 'vm'
 
 /**
  * Returns a function that produces album art image URLs.
@@ -54,6 +56,42 @@ export const getAlbums = html => {
 }
 
 /**
+ * Returns data about the band from a Bandcamp page.
+ *
+ * @param {String} html HTML of a page to retrieve data from
+ * @returns {Object} Band data for the provided Bandcamp page
+ * @throws {TypeError} In case the page appears to be invalid
+ */
+export const getBand = html => {
+  const $ = cheerio.load(html)
+
+  try {
+    // Search through all <script> tags to find the band data.
+    const scripts = $('script').get()
+      .map(s => $(s).html().trim())
+      .filter(s => s.indexOf('BandData') > -1)
+    const dataString = get(scripts, '0', '')
+
+    // Retrieve data from the script. Define fake jQuery and document to avoid errors.
+    const data = get(findScriptData(dataString, { $: () => ({ ready: noop }), document: null }), ['sandbox', 'BandData'], {})
+
+    // This data does not include the band image and description, which we'll include now.
+    const description = $('meta[property="og:description"]').attr('content')
+    const image = $('meta[property="og:image"]').attr('content')
+
+    return {
+      bandData: data,
+      name: data.name,
+      description,
+      image
+    }
+  }
+  catch (e) {
+    throw new TypeError('Could not get band data from Bandcamp HTML page')
+  }
+}
+
+/**
  * Returns page data from a retrieved Bandcamp HTML page.
  *
  * @param {String} html HTML of a page to retrieve data from
@@ -73,5 +111,25 @@ export const getPageData = html => {
   catch (e) {
     // Something unexpected happened.
     throw new TypeError('Could not parse JSON from Bandcamp HTML page')
+  }
+}
+
+
+/**
+ * Runs a script inside of a sandboxed VM to extract its data.
+ */
+export const findScriptData = (scriptContent, sandboxVars = {}) => {
+  try {
+    const sandbox = { window: {}, ...sandboxVars }
+    const script = new vm.Script(scriptContent)
+    const ctx = new vm.createContext(sandbox) // eslint-disable-line new-cap
+    const value = script.runInContext(ctx)
+    return {
+      value,
+      sandbox
+    }
+  }
+  catch (e) {
+    throw new Error(`Could not extract script data: ${e}`)
   }
 }

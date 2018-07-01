@@ -38,7 +38,7 @@ var identifierURL = exports.identifierURL = function identifierURL(identifier) {
  */
 var fetchPage = exports.fetchPage = function () {
   var _ref = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(identifier) {
-    var url, html, albums, pageData;
+    var url, html, band, albums, pageData;
     return regeneratorRuntime.wrap(function _callee$(_context) {
       while (1) {
         switch (_context.prev = _context.next) {
@@ -49,15 +49,17 @@ var fetchPage = exports.fetchPage = function () {
 
           case 3:
             html = _context.sent;
+            band = (0, _util.getBand)(html);
             albums = (0, _util.getAlbums)(html);
             pageData = (0, _util.getPageData)(html);
             return _context.abrupt('return', {
               url: url,
+              band: band,
               albums: albums,
               pageData: pageData
             });
 
-          case 7:
+          case 8:
           case 'end':
             return _context.stop();
         }

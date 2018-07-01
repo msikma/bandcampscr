@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.getPageData = exports.getAlbums = undefined;
+exports.findScriptData = exports.getPageData = exports.getBand = exports.getAlbums = undefined;
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; /**
                                                                                                                                                                                                                                                                    * bandcampscr - Bandcamp Scraper <https://github.com/msikma/bandcampscr>
@@ -13,6 +13,12 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 var _cheerio = require('cheerio');
 
 var _cheerio2 = _interopRequireDefault(_cheerio);
+
+var _lodash = require('lodash');
+
+var _vm = require('vm');
+
+var _vm2 = _interopRequireDefault(_vm);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -68,6 +74,45 @@ var getAlbums = exports.getAlbums = function getAlbums(html) {
 };
 
 /**
+ * Returns data about the band from a Bandcamp page.
+ *
+ * @param {String} html HTML of a page to retrieve data from
+ * @returns {Object} Band data for the provided Bandcamp page
+ * @throws {TypeError} In case the page appears to be invalid
+ */
+var getBand = exports.getBand = function getBand(html) {
+  var $ = _cheerio2.default.load(html);
+
+  try {
+    // Search through all <script> tags to find the band data.
+    var scripts = $('script').get().map(function (s) {
+      return $(s).html().trim();
+    }).filter(function (s) {
+      return s.indexOf('BandData') > -1;
+    });
+    var dataString = (0, _lodash.get)(scripts, '0', '');
+
+    // Retrieve data from the script. Define fake jQuery and document to avoid errors.
+    var data = (0, _lodash.get)(findScriptData(dataString, { $: function $() {
+        return { ready: _lodash.noop };
+      }, document: null }), ['sandbox', 'BandData'], {});
+
+    // This data does not include the band image and description, which we'll include now.
+    var description = $('meta[property="og:description"]').attr('content');
+    var image = $('meta[property="og:image"]').attr('content');
+
+    return {
+      bandData: data,
+      name: data.name,
+      description: description,
+      image: image
+    };
+  } catch (e) {
+    throw new TypeError('Could not get band data from Bandcamp HTML page');
+  }
+};
+
+/**
  * Returns page data from a retrieved Bandcamp HTML page.
  *
  * @param {String} html HTML of a page to retrieve data from
@@ -86,5 +131,25 @@ var getPageData = exports.getPageData = function getPageData(html) {
   } catch (e) {
     // Something unexpected happened.
     throw new TypeError('Could not parse JSON from Bandcamp HTML page');
+  }
+};
+
+/**
+ * Runs a script inside of a sandboxed VM to extract its data.
+ */
+var findScriptData = exports.findScriptData = function findScriptData(scriptContent) {
+  var sandboxVars = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+  try {
+    var sandbox = _extends({ window: {} }, sandboxVars);
+    var script = new _vm2.default.Script(scriptContent);
+    var ctx = new _vm2.default.createContext(sandbox); // eslint-disable-line new-cap
+    var value = script.runInContext(ctx);
+    return {
+      value: value,
+      sandbox: sandbox
+    };
+  } catch (e) {
+    throw new Error('Could not extract script data: ' + e);
   }
 };

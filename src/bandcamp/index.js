@@ -5,7 +5,7 @@
 
 import request from 'request-promise'
 
-import { getPageData, getAlbums } from './util'
+import { getPageData, getAlbums, getBand } from './util'
 
 // Returns a Bandcamp index URL from a subdomain name.
 const bandcampIndexURL = sub => `https://${sub}.bandcamp.com`
@@ -26,10 +26,12 @@ export const identifierURL = identifier => (
 export const fetchPage = async identifier => {
   const url = identifierURL(identifier)
   const html = await request(url)
+  const band = getBand(html)
   const albums = getAlbums(html)
   const pageData = getPageData(html)
   return {
     url,
+    band,
     albums,
     pageData
   }
