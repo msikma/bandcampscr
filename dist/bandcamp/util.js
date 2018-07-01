@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.findScriptData = exports.getPageData = exports.getBand = exports.getAlbums = undefined;
+exports.findScriptData = exports.getPageData = exports.getBand = exports.getExtendedAlbumInfo = exports.getAlbums = undefined;
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; /**
                                                                                                                                                                                                                                                                    * bandcampscr - Bandcamp Scraper <https://github.com/msikma/bandcampscr>
@@ -22,14 +22,22 @@ var _vm2 = _interopRequireDefault(_vm);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-/**
- * Returns a function that produces album art image URLs.
- *
- * @param {*} $ Cheerio object containing a Bandcamp page
- * @param {Object} albums Album data for that page
- * @returns {Function} Function that produces album art image URLs
- */
-var getArtCDN = function getArtCDN($, albums) {
+// Mocked objects that allow us to get <script> tag data without crashing.
+var bcMocks = {
+  $: function $() {
+    return { ready: _lodash.noop };
+  },
+  Control: { registerController: _lodash.noop },
+  document: null
+
+  /**
+   * Returns a function that produces album art image URLs.
+   *
+   * @param {*} $ Cheerio object containing a Bandcamp page
+   * @param {Object} albums Album data for that page
+   * @returns {Function} Function that produces album art image URLs
+   */
+};var getArtCDN = function getArtCDN($, albums) {
   var firstID = albums[0].art_id;
   var firstSrc = $('img[src*="' + firstID + '"]').attr('src');
   return function (id) {
@@ -38,15 +46,31 @@ var getArtCDN = function getArtCDN($, albums) {
 };
 
 /**
+ * Finds tags that match a certain name and content.
+ *
+ * @param {*} $ Cheerio object
+ * @param {String} tagName Name the tags need to have
+ * @param {String} tagContent Content the tags need to have
+ */
+var findTags = function findTags($, tagName, tagContent) {
+  return $(tagName).get().map(function (s) {
+    return $(s).html().trim();
+  }).filter(function (s) {
+    return s.indexOf(tagContent) > -1;
+  });
+};
+
+/**
  * Returns albums listed on a Bandcamp HTML index page.
  * Normally, albums do not have a direct URL to the artwork image, so we're adding it ourselves.
  * The album art is named '_art_url', prefixed with an underscore to highlight that it's a custom addition.
  *
  * @param {String} html HTML of a page to retrieve albums from
+ * @param {String} url Base URL of the Bandcamp artist
  * @returns {Object} Albums present on the Bandcamp page
  * @throws {TypeError} In case this does not appear to be a Bandcamp page
  */
-var getAlbums = exports.getAlbums = function getAlbums(html) {
+var getAlbums = exports.getAlbums = function getAlbums(html, url) {
   // The data is present in the .music-grid <ol> node. There's only one on the page.
   var $ = _cheerio2.default.load(html);
   var $musicGrid = $('.music-grid');
@@ -62,14 +86,40 @@ var getAlbums = exports.getAlbums = function getAlbums(html) {
     // If there are no albums, just return the empty data.
     if (!data.length) return data;
 
-    // Make a function that returns art URLs, and then run it on all albums we found.
+    // Make a function that returns art URLs, and then run it on all albums we found. Add the base URL too.
     var artLink = getArtCDN($, data);
     return data.map(function (album) {
-      return _extends({}, album, { _art_url: artLink(album.art_id) });
+      return _extends({}, album, { _art_url: artLink(album.art_id), _url: url });
     });
   } catch (e) {
     // Something unexpected happened.
     throw new TypeError('Could not parse JSON from Bandcamp albums node');
+  }
+};
+
+/**
+ * Returns data from an album using HTML retrieved from the album's URL.
+ *
+ * @param {String} html HTML of a page to retrieve data from
+ * @returns {Object} Album data for the provided Bandcamp album page
+ * @throws {TypeError} In case the page appears to be invalid
+ */
+var getExtendedAlbumInfo = exports.getExtendedAlbumInfo = function getExtendedAlbumInfo(html) {
+  var $ = _cheerio2.default.load(html);
+
+  try {
+    // Same as getBand() - see comments there.
+    var scripts = findTags($, 'script', 'TralbumData');
+    var dataString = (0, _lodash.get)(scripts, '0', '');
+    var data = (0, _lodash.get)(findScriptData(dataString, bcMocks), ['sandbox', 'TralbumData'], {});
+
+    return {
+      baseInfo: data.current,
+      tracks: data.trackinfo,
+      otherInfo: (0, _lodash.omit)(data, ['current', 'trackinfo'])
+    };
+  } catch (e) {
+    throw new TypeError('Could not get album from Bandcamp HTML page');
   }
 };
 
@@ -85,17 +135,11 @@ var getBand = exports.getBand = function getBand(html) {
 
   try {
     // Search through all <script> tags to find the band data.
-    var scripts = $('script').get().map(function (s) {
-      return $(s).html().trim();
-    }).filter(function (s) {
-      return s.indexOf('BandData') > -1;
-    });
+    var scripts = findTags($, 'script', 'BandData');
     var dataString = (0, _lodash.get)(scripts, '0', '');
 
     // Retrieve data from the script. Define fake jQuery and document to avoid errors.
-    var data = (0, _lodash.get)(findScriptData(dataString, { $: function $() {
-        return { ready: _lodash.noop };
-      }, document: null }), ['sandbox', 'BandData'], {});
+    var data = (0, _lodash.get)(findScriptData(dataString, bcMocks), ['sandbox', 'BandData'], {});
 
     // This data does not include the band image and description, which we'll include now.
     var description = $('meta[property="og:description"]').attr('content');

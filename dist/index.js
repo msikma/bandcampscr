@@ -12,3 +12,9 @@ Object.defineProperty(exports, 'fetchPage', {
     return _bandcamp.fetchPage;
   }
 });
+Object.defineProperty(exports, 'fetchAlbumExtendedInfo', {
+  enumerable: true,
+  get: function get() {
+    return _bandcamp.fetchAlbumExtendedInfo;
+  }
+});

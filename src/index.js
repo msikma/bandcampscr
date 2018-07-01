@@ -3,4 +3,4 @@
  * Copyright © 2018, Michiel Sikma
  */
 
-export { fetchPage } from './bandcamp'
+export { fetchPage, fetchAlbumExtendedInfo } from './bandcamp'
