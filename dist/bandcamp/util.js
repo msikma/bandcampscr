@@ -69,7 +69,10 @@ var decorateAlbums = exports.decorateAlbums = function decorateAlbums(albums, ur
   var $ = _cheerio2.default.load(html);
   var artLink = getArtCDN($, albums);
   return albums.map(function (album) {
-    return _extends({}, album, { _art_url: artLink(album.art_id), _url: url });
+    return _extends({}, album, {
+      _art_url: artLink(album.art_id),
+      _url: url
+    }, !album.id && album.item_id ? { id: album.item_id } : {});
   });
 };
 

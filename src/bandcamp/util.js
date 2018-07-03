@@ -48,7 +48,13 @@ const findTags = ($, tagName, tagContent) => (
 export const decorateAlbums = (albums, url, html) => {
   const $ = cheerio.load(html)
   const artLink = getArtCDN($, albums)
-  return albums.map(album => ({ ...album, _art_url: artLink(album.art_id), _url: url }))
+  return albums.map(album => ({
+    ...album,
+    _art_url: artLink(album.art_id),
+    _url: url,
+    // Copy 'item_id' to 'id' if we don't have an ID.
+    ...(!album.id && album.item_id ? { id: album.item_id } : {})
+  }))
 }
 
 /**
