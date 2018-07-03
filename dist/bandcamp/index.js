@@ -9,6 +9,8 @@ var _requestPromise = require('request-promise');
 
 var _requestPromise2 = _interopRequireDefault(_requestPromise);
 
+var _lodash = require('lodash');
+
 var _util = require('./util');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
@@ -66,13 +68,29 @@ var fetchAlbumExtendedInfo = exports.fetchAlbumExtendedInfo = function () {
 }();
 
 /**
+ * Returns albums retrieved from the HTML content.
+ * If the albums data isn't in the HTML, it will be returned from the page data instead.
+ *
+ * @param {String} html Bandcamp page HTML
+ * @param {String} url URL for the Bandcamp index page
+ * @param {Object} pageData Scraped page data from a Bandcamp page
+ */
+var getAlbumsIfPossible = function getAlbumsIfPossible(html, url, pageData) {
+  try {
+    return (0, _util.getAlbums)(html, url);
+  } catch (e) {
+    return (0, _util.decorateAlbums)((0, _lodash.get)(pageData, 'buyfulldisco.tralbums', []), url, html);
+  }
+};
+
+/**
  * Returns a list of albums
  *
  * @param {String|Object} identifier Either subdomain or full URL (e.g. { url: 'http://example.com' })
  */
 var fetchPage = exports.fetchPage = function () {
   var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(identifier) {
-    var url, html, band, albums, pageData;
+    var url, html, band, pageData, albums;
     return regeneratorRuntime.wrap(function _callee2$(_context2) {
       while (1) {
         switch (_context2.prev = _context2.next) {
@@ -84,8 +102,8 @@ var fetchPage = exports.fetchPage = function () {
           case 3:
             html = _context2.sent;
             band = (0, _util.getBand)(html);
-            albums = (0, _util.getAlbums)(html, url);
             pageData = (0, _util.getPageData)(html);
+            albums = getAlbumsIfPossible(html, url, pageData);
             return _context2.abrupt('return', {
               url: url,
               band: band,

@@ -3,7 +3,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.findScriptData = exports.getPageData = exports.getBand = exports.getExtendedAlbumInfo = exports.getAlbums = undefined;
+exports.findScriptData = exports.getPageData = exports.getBand = exports.getExtendedAlbumInfo = exports.getAlbums = exports.decorateAlbums = undefined;
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; /**
                                                                                                                                                                                                                                                                    * bandcampscr - Bandcamp Scraper <https://github.com/msikma/bandcampscr>
@@ -57,6 +57,19 @@ var findTags = function findTags($, tagName, tagContent) {
     return $(s).html().trim();
   }).filter(function (s) {
     return s.indexOf(tagContent) > -1;
+  });
+};
+
+/**
+ * Adds art URL and detail URL to a list of albums.
+ *
+ * @param {Array} albums Albums from 'buyfulldisco.tralbums' from page data
+ */
+var decorateAlbums = exports.decorateAlbums = function decorateAlbums(albums, url, html) {
+  var $ = _cheerio2.default.load(html);
+  var artLink = getArtCDN($, albums);
+  return albums.map(function (album) {
+    return _extends({}, album, { _art_url: artLink(album.art_id), _url: url });
   });
 };
 
