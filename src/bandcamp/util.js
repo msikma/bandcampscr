@@ -41,6 +41,17 @@ const findTags = ($, tagName, tagContent) => (
 )
 
 /**
+ * Adds art URL and detail URL to a list of albums.
+ *
+ * @param {Array} albums Albums from 'buyfulldisco.tralbums' from page data
+ */
+export const decorateAlbums = (albums, url, html) => {
+  const $ = cheerio.load(html)
+  const artLink = getArtCDN($, albums)
+  return albums.map(album => ({ ...album, _art_url: artLink(album.art_id), _url: url }))
+}
+
+/**
  * Returns albums listed on a Bandcamp HTML index page.
  * Normally, albums do not have a direct URL to the artwork image, so we're adding it ourselves.
  * The album art is named '_art_url', prefixed with an underscore to highlight that it's a custom addition.

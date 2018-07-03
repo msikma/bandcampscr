@@ -4,8 +4,9 @@
  */
 
 import request from 'request-promise'
+import { get } from 'lodash'
 
-import { getPageData, getAlbums, getBand, getExtendedAlbumInfo } from './util'
+import { getPageData, getAlbums, getBand, getExtendedAlbumInfo, decorateAlbums } from './util'
 
 // Returns a Bandcamp index URL from a subdomain name.
 const bandcampIndexURL = sub => `https://${sub}.bandcamp.com`
@@ -31,6 +32,23 @@ export const fetchAlbumExtendedInfo = async album => {
 }
 
 /**
+ * Returns albums retrieved from the HTML content.
+ * If the albums data isn't in the HTML, it will be returned from the page data instead.
+ *
+ * @param {String} html Bandcamp page HTML
+ * @param {String} url URL for the Bandcamp index page
+ * @param {Object} pageData Scraped page data from a Bandcamp page
+ */
+const getAlbumsIfPossible = (html, url, pageData) => {
+  try {
+    return getAlbums(html, url)
+  }
+  catch (e) {
+    return decorateAlbums(get(pageData, 'buyfulldisco.tralbums', []), url, html)
+  }
+}
+
+/**
  * Returns a list of albums
  *
  * @param {String|Object} identifier Either subdomain or full URL (e.g. { url: 'http://example.com' })
@@ -39,8 +57,8 @@ export const fetchPage = async (identifier) => {
   const url = identifierURL(identifier)
   const html = await request(url)
   const band = getBand(html)
-  const albums = getAlbums(html, url)
   const pageData = getPageData(html)
+  const albums = getAlbumsIfPossible(html, url, pageData)
   return {
     url,
     band,
