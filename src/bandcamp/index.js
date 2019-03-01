@@ -11,6 +11,10 @@ import { getPageData, getAlbums, getBand, getExtendedAlbumInfo, decorateAlbums }
 // Returns a Bandcamp index URL from a subdomain name.
 const bandcampIndexURL = sub => `https://${sub}.bandcamp.com`
 
+// Includes '/music' at the end to ensure we get the music page, instead of
+// (possibly) the merch page, either of which can be the default view.
+const bandcampMusicURL = url => `${url}/music`
+
 /**
  * Returns a Bandcamp index URL to scrape.
  * @param {String|Object} identifier Either subdomain or full URL (e.g. { url: 'http://example.com' })
@@ -55,7 +59,7 @@ const getAlbumsIfPossible = (html, url, pageData) => {
  */
 export const fetchPage = async (identifier) => {
   const url = identifierURL(identifier)
-  const html = await request(url)
+  const html = await request(bandcampMusicURL(url))
   const band = getBand(html)
   const pageData = getPageData(html)
   const albums = getAlbumsIfPossible(html, url, pageData)
