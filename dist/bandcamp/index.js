@@ -25,6 +25,12 @@ var bandcampIndexURL = function bandcampIndexURL(sub) {
   return 'https://' + sub + '.bandcamp.com';
 };
 
+// Includes '/music' at the end to ensure we get the music page, instead of
+// (possibly) the merch page, either of which can be the default view.
+var bandcampMusicURL = function bandcampMusicURL(url) {
+  return url + '/music';
+};
+
 /**
  * Returns a Bandcamp index URL to scrape.
  * @param {String|Object} identifier Either subdomain or full URL (e.g. { url: 'http://example.com' })
@@ -97,7 +103,7 @@ var fetchPage = exports.fetchPage = function () {
           case 0:
             url = identifierURL(identifier);
             _context2.next = 3;
-            return (0, _requestPromise2.default)(url);
+            return (0, _requestPromise2.default)(bandcampMusicURL(url));
 
           case 3:
             html = _context2.sent;
