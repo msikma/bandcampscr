@@ -22,9 +22,14 @@ const bcMocks = {
  * @returns {Function} Function that produces album art image URLs
  */
 const getArtCDN = ($, albums) => {
-  const firstID = albums[0].art_id
-  const firstSrc = $(`img[src*="${firstID}"]`).attr('src')
-  return id => firstSrc.replace(firstID, id)
+  if (!albums || !albums.length) return noop
+  for (const item of albums) {
+    const itemID = item.art_id
+    const itemSrc = $(`img[src*="${itemID}"]`).attr('src')
+    if (itemSrc == null) continue
+    return id => itemSrc.replace(itemID, id)
+  }
+  return noop
 }
 
 /**
@@ -75,6 +80,28 @@ export const getAlbums = (html, url) => {
   // If we can't find that node, we don't have compatible HTML.
   if (!$musicGrid.length) throw new TypeError('Not a Bandcamp HTML page')
 
+  // Attempt to get the data from the 'data-initial-values' JSON.
+  let data
+  try {
+    data = getAlbumsFromInitVal($, $musicGrid)
+  }
+  catch (e) {
+  }
+  if (data.length) return data
+
+  // Could not find the data.
+  throw new TypeError('Could not parse data from .music-grid')
+}
+
+/**
+ * Returns albums from a Bandcamp page through the 'data-initial-values' JSON.
+ *
+ * @param {Object} $ Cheerio object for a Bandcamp page
+ * @param {Object} $musicGrid Music grid node
+ * @returns {Array} Albums present on the Bandcamp page
+ * @throws {TypeError} In case the data could not be found in the attribute
+ */
+const getAlbumsFromInitVal = ($, $musicGrid) => {
   try {
     // Retrieve the list of albums. This list does not contain URLs for album art, just album art IDs.
     // We'll do a quick match on the first album's art ID to get the CDN base URL.
@@ -89,7 +116,7 @@ export const getAlbums = (html, url) => {
   }
   catch (e) {
     // Something unexpected happened.
-    throw new TypeError('Could not parse JSON from Bandcamp albums node')
+    throw new TypeError('Could not parse JSON from Bandcamp albums node data-initial-values attribute')
   }
 }
 
@@ -152,6 +179,25 @@ export const getBand = html => {
   catch (e) {
     throw new TypeError('Could not get band data from Bandcamp HTML page')
   }
+}
+
+/**
+ * Returns a link to the first album on a page.
+ *
+ * @param {String} baseURL Base URL of the band
+ * @param {String} html HTML of a page to retrieve data from
+ * @returns {String} URL to the first album
+ */
+export const getFirstAlbum = (baseURL, html) => {
+  const $ = cheerio.load(html)
+  const $albums = $('.music-grid .music-grid-item').get()
+  if (!$albums.length) return null
+  for (const item of $albums) {
+    const href = $('a', item).attr('href').trim()
+    if (!href.startsWith('/album')) continue
+    return `${baseURL}${href}`
+  }
+  return null
 }
 
 /**

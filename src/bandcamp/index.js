@@ -3,10 +3,11 @@
  * Copyright © 2018, Michiel Sikma
  */
 
+import cheerio from 'cheerio'
 import request from 'request-promise'
 import { get } from 'lodash'
 
-import { getPageData, getAlbums, getBand, getExtendedAlbumInfo, decorateAlbums } from './util'
+import { getPageData, getAlbums, getBand, getExtendedAlbumInfo, getFirstAlbum, decorateAlbums } from './util'
 
 // Returns a Bandcamp index URL from a subdomain name.
 const bandcampIndexURL = sub => `https://${sub}.bandcamp.com`
@@ -53,13 +54,39 @@ const getAlbumsIfPossible = (html, url, pageData) => {
 }
 
 /**
+ * Retrieves HTML for this band's overview page.
+ * 
+ * This might retrieve a second page if needed. Not all pages contain the data we need.
+ * 
+ * @param {String} url URL for the Bandcamp index page
+ * @returns {String} HTML for the page
+ */
+const getOverviewPage = async (url, useMusicURL) => {
+  const htmlOne = await request(useMusicURL ? bandcampMusicURL(url) : url)
+  const pageDataOne = getPageData(htmlOne)
+  if (pageDataOne.buyfulldisco) {
+    return htmlOne
+  }
+  // If that didn't work, grab the first album on the page and try again.
+  const detailLink = getFirstAlbum(url, htmlOne)
+  if (detailLink == null) return null
+  const htmlTwo = await request(detailLink)
+  const pageDataTwo = getPageData(htmlTwo)
+  if (pageDataTwo.buyfulldisco) {
+    return htmlTwo
+  }
+  return null
+}
+
+/**
  * Returns a list of albums
  *
  * @param {String|Object} identifier Either subdomain or full URL (e.g. { url: 'http://example.com' })
  */
-export const fetchPage = async (identifier) => {
+export const fetchPage = async (identifier, useMusicURL = false) => {
   const url = identifierURL(identifier)
-  const html = await request(bandcampMusicURL(url))
+  const html = await getOverviewPage(url, useMusicURL)
+  if (html == null) return {}
   const band = getBand(html)
   const pageData = getPageData(html)
   const albums = getAlbumsIfPossible(html, url, pageData)
