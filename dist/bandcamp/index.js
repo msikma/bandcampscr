@@ -5,6 +5,10 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.fetchPage = exports.fetchAlbumExtendedInfo = exports.identifierURL = undefined;
 
+var _cheerio = require('cheerio');
+
+var _cheerio2 = _interopRequireDefault(_cheerio);
+
 var _requestPromise = require('request-promise');
 
 var _requestPromise2 = _interopRequireDefault(_requestPromise);
@@ -90,34 +94,64 @@ var getAlbumsIfPossible = function getAlbumsIfPossible(html, url, pageData) {
 };
 
 /**
- * Returns a list of albums
- *
- * @param {String|Object} identifier Either subdomain or full URL (e.g. { url: 'http://example.com' })
+ * Retrieves HTML for this band's overview page.
+ * 
+ * This might retrieve a second page if needed. Not all pages contain the data we need.
+ * 
+ * @param {String} url URL for the Bandcamp index page
+ * @returns {String} HTML for the page
  */
-var fetchPage = exports.fetchPage = function () {
-  var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(identifier) {
-    var url, html, band, pageData, albums;
+var getOverviewPage = function () {
+  var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee2(url, useMusicURL) {
+    var htmlOne, pageDataOne, detailLink, htmlTwo, pageDataTwo;
     return regeneratorRuntime.wrap(function _callee2$(_context2) {
       while (1) {
         switch (_context2.prev = _context2.next) {
           case 0:
-            url = identifierURL(identifier);
-            _context2.next = 3;
-            return (0, _requestPromise2.default)(bandcampMusicURL(url));
+            _context2.next = 2;
+            return (0, _requestPromise2.default)(useMusicURL ? bandcampMusicURL(url) : url);
 
-          case 3:
-            html = _context2.sent;
-            band = (0, _util.getBand)(html);
-            pageData = (0, _util.getPageData)(html);
-            albums = getAlbumsIfPossible(html, url, pageData);
-            return _context2.abrupt('return', {
-              url: url,
-              band: band,
-              albums: albums,
-              pageData: pageData
-            });
+          case 2:
+            htmlOne = _context2.sent;
+            pageDataOne = (0, _util.getPageData)(htmlOne);
 
-          case 8:
+            if (!pageDataOne.buyfulldisco) {
+              _context2.next = 6;
+              break;
+            }
+
+            return _context2.abrupt('return', htmlOne);
+
+          case 6:
+            // If that didn't work, grab the first album on the page and try again.
+            detailLink = (0, _util.getFirstAlbum)(url, htmlOne);
+
+            if (!(detailLink == null)) {
+              _context2.next = 9;
+              break;
+            }
+
+            return _context2.abrupt('return', null);
+
+          case 9:
+            _context2.next = 11;
+            return (0, _requestPromise2.default)(detailLink);
+
+          case 11:
+            htmlTwo = _context2.sent;
+            pageDataTwo = (0, _util.getPageData)(htmlTwo);
+
+            if (!pageDataTwo.buyfulldisco) {
+              _context2.next = 15;
+              break;
+            }
+
+            return _context2.abrupt('return', htmlTwo);
+
+          case 15:
+            return _context2.abrupt('return', null);
+
+          case 16:
           case 'end':
             return _context2.stop();
         }
@@ -125,7 +159,58 @@ var fetchPage = exports.fetchPage = function () {
     }, _callee2, undefined);
   }));
 
-  return function fetchPage(_x2) {
+  return function getOverviewPage(_x2, _x3) {
     return _ref2.apply(this, arguments);
+  };
+}();
+
+/**
+ * Returns a list of albums
+ *
+ * @param {String|Object} identifier Either subdomain or full URL (e.g. { url: 'http://example.com' })
+ */
+var fetchPage = exports.fetchPage = function () {
+  var _ref3 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee3(identifier) {
+    var useMusicURL = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+    var url, html, band, pageData, albums;
+    return regeneratorRuntime.wrap(function _callee3$(_context3) {
+      while (1) {
+        switch (_context3.prev = _context3.next) {
+          case 0:
+            url = identifierURL(identifier);
+            _context3.next = 3;
+            return getOverviewPage(url, useMusicURL);
+
+          case 3:
+            html = _context3.sent;
+
+            if (!(html == null)) {
+              _context3.next = 6;
+              break;
+            }
+
+            return _context3.abrupt('return', {});
+
+          case 6:
+            band = (0, _util.getBand)(html);
+            pageData = (0, _util.getPageData)(html);
+            albums = getAlbumsIfPossible(html, url, pageData);
+            return _context3.abrupt('return', {
+              url: url,
+              band: band,
+              albums: albums,
+              pageData: pageData
+            });
+
+          case 10:
+          case 'end':
+            return _context3.stop();
+        }
+      }
+    }, _callee3, undefined);
+  }));
+
+  return function fetchPage(_x5) {
+    return _ref3.apply(this, arguments);
   };
 }();

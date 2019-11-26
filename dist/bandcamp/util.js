@@ -3,12 +3,14 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.findScriptData = exports.getPageData = exports.getBand = exports.getExtendedAlbumInfo = exports.getAlbums = exports.decorateAlbums = undefined;
+exports.findScriptData = exports.getPageData = exports.getFirstAlbum = exports.getBand = exports.getExtendedAlbumInfo = exports.getAlbums = exports.decorateAlbums = undefined;
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; /**
-                                                                                                                                                                                                                                                                   * bandcampscr - Bandcamp Scraper <https://github.com/msikma/bandcampscr>
-                                                                                                                                                                                                                                                                   * Copyright © 2018, Michiel Sikma
-                                                                                                                                                                                                                                                                   */
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; /**
+                                                                                                                                                                                                                                                                               * bandcampscr - Bandcamp Scraper <https://github.com/msikma/bandcampscr>
+                                                                                                                                                                                                                                                                               * Copyright © 2018, Michiel Sikma
+                                                                                                                                                                                                                                                                               */
 
 var _cheerio = require('cheerio');
 
@@ -38,11 +40,53 @@ var bcMocks = {
    * @returns {Function} Function that produces album art image URLs
    */
 };var getArtCDN = function getArtCDN($, albums) {
-  var firstID = albums[0].art_id;
-  var firstSrc = $('img[src*="' + firstID + '"]').attr('src');
-  return function (id) {
-    return firstSrc.replace(firstID, id);
+  if (!albums || !albums.length) return _lodash.noop;
+
+  var _loop = function _loop(item) {
+    var itemID = item.art_id;
+    var itemSrc = $('img[src*="' + itemID + '"]').attr('src');
+    if (itemSrc == null) return 'continue';
+    return {
+      v: function v(id) {
+        return itemSrc.replace(itemID, id);
+      }
+    };
   };
+
+  var _iteratorNormalCompletion = true;
+  var _didIteratorError = false;
+  var _iteratorError = undefined;
+
+  try {
+    for (var _iterator = albums[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+      var item = _step.value;
+
+      var _ret = _loop(item);
+
+      switch (_ret) {
+        case 'continue':
+          continue;
+
+        default:
+          if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
+      }
+    }
+  } catch (err) {
+    _didIteratorError = true;
+    _iteratorError = err;
+  } finally {
+    try {
+      if (!_iteratorNormalCompletion && _iterator.return) {
+        _iterator.return();
+      }
+    } finally {
+      if (_didIteratorError) {
+        throw _iteratorError;
+      }
+    }
+  }
+
+  return _lodash.noop;
 };
 
 /**
@@ -94,6 +138,26 @@ var getAlbums = exports.getAlbums = function getAlbums(html, url) {
   // If we can't find that node, we don't have compatible HTML.
   if (!$musicGrid.length) throw new TypeError('Not a Bandcamp HTML page');
 
+  // Attempt to get the data from the 'data-initial-values' JSON.
+  var data = void 0;
+  try {
+    data = getAlbumsFromInitVal($, $musicGrid);
+  } catch (e) {}
+  if (data.length) return data;
+
+  // Could not find the data.
+  throw new TypeError('Could not parse data from .music-grid');
+};
+
+/**
+ * Returns albums from a Bandcamp page through the 'data-initial-values' JSON.
+ *
+ * @param {Object} $ Cheerio object for a Bandcamp page
+ * @param {Object} $musicGrid Music grid node
+ * @returns {Array} Albums present on the Bandcamp page
+ * @throws {TypeError} In case the data could not be found in the attribute
+ */
+var getAlbumsFromInitVal = function getAlbumsFromInitVal($, $musicGrid) {
   try {
     // Retrieve the list of albums. This list does not contain URLs for album art, just album art IDs.
     // We'll do a quick match on the first album's art ID to get the CDN base URL.
@@ -109,7 +173,7 @@ var getAlbums = exports.getAlbums = function getAlbums(html, url) {
     });
   } catch (e) {
     // Something unexpected happened.
-    throw new TypeError('Could not parse JSON from Bandcamp albums node');
+    throw new TypeError('Could not parse JSON from Bandcamp albums node data-initial-values attribute');
   }
 };
 
@@ -170,6 +234,47 @@ var getBand = exports.getBand = function getBand(html) {
   } catch (e) {
     throw new TypeError('Could not get band data from Bandcamp HTML page');
   }
+};
+
+/**
+ * Returns a link to the first album on a page.
+ *
+ * @param {String} baseURL Base URL of the band
+ * @param {String} html HTML of a page to retrieve data from
+ * @returns {String} URL to the first album
+ */
+var getFirstAlbum = exports.getFirstAlbum = function getFirstAlbum(baseURL, html) {
+  var $ = _cheerio2.default.load(html);
+  var $albums = $('.music-grid .music-grid-item').get();
+  if (!$albums.length) return null;
+  var _iteratorNormalCompletion2 = true;
+  var _didIteratorError2 = false;
+  var _iteratorError2 = undefined;
+
+  try {
+    for (var _iterator2 = $albums[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+      var item = _step2.value;
+
+      var href = $('a', item).attr('href').trim();
+      if (!href.startsWith('/album')) continue;
+      return '' + baseURL + href;
+    }
+  } catch (err) {
+    _didIteratorError2 = true;
+    _iteratorError2 = err;
+  } finally {
+    try {
+      if (!_iteratorNormalCompletion2 && _iterator2.return) {
+        _iterator2.return();
+      }
+    } finally {
+      if (_didIteratorError2) {
+        throw _iteratorError2;
+      }
+    }
+  }
+
+  return null;
 };
 
 /**
